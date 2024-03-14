@@ -1,11 +1,9 @@
 package com.vaishali.mills.controllers;
 
 import com.vaishali.mills.requests.MillDetails;
+import com.vaishali.mills.requests.MillRotorMap;
 import com.vaishali.mills.responses.*;
-import com.vaishali.mills.responses.mappers.ComponentDetailsMapper;
-import com.vaishali.mills.responses.mappers.RotorRunningMapper;
-import com.vaishali.mills.responses.mappers.RunningDetailsMapper;
-import com.vaishali.mills.responses.mappers.StartDetailsMapper;
+import com.vaishali.mills.responses.mappers.*;
 import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -24,7 +22,7 @@ public class MillController {
     JdbcTemplate jdbcTemplate;
 
     @Operation(summary = "Start mill")
-    @PostMapping("/mill")
+    @PostMapping("/millOpt")
     public void insertData(@RequestBody MillDetails millDetails) {
         System.out.println(millDetails.toString());
 
@@ -53,25 +51,44 @@ public class MillController {
     }
 
     @Operation(summary = "Get complete details for Mills")
-    @GetMapping("/components")
-    public WrapperDetails getCompDetails() {
-        String sql = "select (select distinct A.millid from rotor_transactions A where  A.RotorId=rotor limit 1) as mill," +
-                "rotor, cmptName,sum(tothrs) as hrs,case when sum(tothrs) >= (select lifePeriod from component_lifecycle " +
-                "where componentname = cmptName) then false else true end as pass from ( select RotorId as rotor, componentName as cmptName, " +
-                "case when status = 'Stop' then runninghours else round(hour(timediff((select now()),startPeriod)) * 60 " +
-                "+ minute(timediff((select now()),startPeriod)) + second(timediff((select now()),startPeriod))/60)  end as " +
-                "tothrs from rotor_transactions) as tbl_rotor GROUP by rotor, cmptName  ";
+    @GetMapping("/resetcomponent")
+    public List<ComponentDetails> getCompDetails(@RequestParam(name = "millid") String millid) {
+        if(millid == null || millid.equals("")) {
+            millid = "%%";
+        }
+        String sql = "select distinct A.millid,A.rotorid,A.componentname,(select sum(tothrs) from (select case when B.status = 'Stop' " +
+                "then B.runninghours else TIMESTAMPDIFF(hour,B.startPeriod,(select now())) end as tothrs from rotor_transactions B" +
+                " where B.rotorid=A.rotorid and B.componentname=A.componentname) as Hours) as compthours, " +
+                "(select distinct overallDate from rotor_transactions_history where rotorId=A.rotorid and componentname=A.componentName " +
+                "order by overallDate desc limit 1) as overallDate from rotor_transactions A  where A.status='Stop' and " +
+                "(select count(*) from rotor_transactions C where C.rotorid=A.rotorid and C.componentname=A.componentname and " +
+                "C.status ='Running')=0 and  A.millid like '" + millid + "'" ;
 
-        String sql1 = "select distinct status,RotorId from rotor_transactions";
-
-        return new WrapperDetails(jdbcTemplate.query(sql,new ComponentDetailsMapper()),jdbcTemplate.query(sql1,new RotorRunningMapper()));
+        return jdbcTemplate.query(sql,new ComponentDetailsMapper());
     }
 
-    @GetMapping("/view")
-    public void getView() {
-        String sql = "";
+    @GetMapping("/mapData")
+    public List<RunningDetails> getMappingData() {
+        String sql = "select distinct millid , rotorid from mill_rotor_map where status = 'Active' and " +
+                "millid not in (select distinct millid from rotor_transactions where status='Running') " +
+                "and rotorid not in (select distinct rotorid from rotor_transactions where status='Running')";
+        return jdbcTemplate.query(sql,new RunningDetailsMapper());
     }
 
+    @PostMapping("/maprotor")
+    public void createMappping(@RequestBody MillRotorMap millRotorMap) {
+        System.out.println(millRotorMap.toString());
 
+        String sqlStr = "call insert_mapping('"+ millRotorMap.getMillId()+"','" + millRotorMap.getRotorId() + "')";
+        System.out.println(sqlStr);
+        jdbcTemplate.execute(sqlStr);
+    }
+
+    @GetMapping("/viewdetails")
+    public List<ViewDetails> getView() {
+        String sql = "select '' as remarks,mill, rotor, (select sum(tothrs) from (select case when C.status = 'Stop' then C.runninghours else TIMESTAMPDIFF(hour,C.startPeriod,(select now())) end as tothrs from rotor_transactions C where C.componentname='FDP' and C.rotorId=rotor) as fdp1) as fdp, (select sum(tothrs) from (select case when C.status = 'Stop' then C.runninghours else TIMESTAMPDIFF(hour,C.startPeriod,(select now())) end as tothrs from rotor_transactions C where C.componentname='VANEPAD' and C.rotorId=rotor) as vanepad1) as vanepad,(select distinct status from rotor_transactions where rotorId=rotor and MillId=mill order by status limit 1) as status,(select distinct overallDate from rotor_transactions_history where rotorId=rotor and componentname='FDP' order by overallDate desc limit 1) as fdpdate, (select distinct overallDate from rotor_transactions_history where rotorId=rotor and componentname='VANEPAD' order by overallDate desc limit 1) as vanepadDate from (select A.mill_rotor_id as mill, coalesce((select B.rotorid from mill_rotor_map B where B.status = 'Active' and B.millid= A.mill_rotor_id),'No Mill Attached') as rotor,'' as f,'' as f1 from mill_rotor A where A.typeof='Mill') as tbl";
+
+        return jdbcTemplate.query(sql,new ViewMapper());
+    }
 
 }

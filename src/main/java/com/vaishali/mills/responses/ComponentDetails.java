@@ -3,6 +3,9 @@ package com.vaishali.mills.responses;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.sql.Date;
+import java.sql.Timestamp;
+
 @Getter
 @Setter
 public class ComponentDetails {
@@ -11,6 +14,6 @@ public class ComponentDetails {
     private String rotorId;
     private String componentName;
     private int runningHours;
-    private boolean passed;
+    private Timestamp overAllDate;
 
 }
