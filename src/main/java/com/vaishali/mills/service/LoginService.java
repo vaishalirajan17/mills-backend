@@ -1,0 +1,86 @@
+package com.vaishali.mills.service;
+
+import com.vaishali.mills.constants.QueryConstants;
+import com.vaishali.mills.requests.login.LoginRequest;
+import com.vaishali.mills.responses.GenericResponse;
+import com.vaishali.mills.responses.QueryWrapper;
+import com.vaishali.mills.responses.mappers.PermissionsMapper;
+import com.vaishali.mills.responses.users.Permission;
+import com.vaishali.mills.responses.users.UserPermissionsResponse;
+import com.vaishali.mills.utils.QueryUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+@Service
+public class LoginService {
+
+    private static final Logger logger = LoggerFactory.getLogger(LoginService.class);
+
+    @Autowired
+    QueryUtils queryUtils;
+
+    public GenericResponse handleLoginRequest(LoginRequest loginRequest) {
+        if(isInvalidLoginRequest(loginRequest)) {
+            return new GenericResponse("User name cannot be empty", "", "");
+        }
+
+        // check if username and password is valid
+        String query = String.format(QueryConstants.GET_ACTIVE_USER_BY_USERNAME_AND_PASSWORD,
+                loginRequest.getUsername(),
+                loginRequest.getPassword());
+
+
+        QueryWrapper result = queryUtils.queryObjectStringWrapper(query);
+
+        if(result.getState() == -1) {
+            // exception occured
+            return new GenericResponse("Error in login. Please try again later", "", "");
+        } else if (result.getState() == 0) {
+            return new GenericResponse("Wrong username/password. Please check again", "", "");
+        } else {
+            logger.info("successfully logged in for user {}", loginRequest.getUsername());
+            return new GenericResponse("","Logged in", "");
+        }
+    }
+
+
+    public UserPermissionsResponse handlePermissionsRequest(String roleId) {
+
+        if(isInvalidPermissionsRequest(roleId)) {
+            return new UserPermissionsResponse("RoleId is required", "", "");
+        }
+
+        List<Permission> permissionList = getPermissions(roleId);
+
+        if(permissionList == null) {
+            return new UserPermissionsResponse("Error in getting permissions for the user", "", "");
+        }
+        UserPermissionsResponse response = new UserPermissionsResponse("", "Success", "");
+        response.setPermissions(permissionList);
+        return response;
+    }
+
+    public List<Permission> getPermissions(String roleId) {
+
+        String query = String.format(
+                QueryConstants.GET_PERMISSIONS_BY_ROLL_ID,
+                roleId
+        );
+
+        return queryUtils.getDataFromDB(query, new PermissionsMapper());
+    }
+
+
+    public boolean isInvalidLoginRequest(LoginRequest loginRequest) {
+        return loginRequest.getUsername() == null;
+    }
+
+    public boolean isInvalidPermissionsRequest(String roleId) {
+        return roleId == null;
+    }
+
+}
