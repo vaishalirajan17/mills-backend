@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
+@CrossOrigin("*")
 public class LoginController {
 
     @Autowired
@@ -25,11 +26,10 @@ public class LoginController {
     }
 
     @GetMapping("/permissions")
-    public UserPermissionsResponse getPermissions(@RequestParam(name = "roleid") String roleId) {
-        logger.info("/permissions for roleId : {}", roleId);
+    public UserPermissionsResponse getPermissionsByUsername(@RequestParam(name = "username") String username) {
+        logger.info("/permissions for username : {}", username);
 
-        return loginService.handlePermissionsRequest(roleId);
-
+        return loginService.handlePermissionsRequest(username);
     }
 
 

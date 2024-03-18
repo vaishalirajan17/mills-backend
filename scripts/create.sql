@@ -19,7 +19,7 @@ CREATE TABLE permissions (
 
 CREATE TABLE users (
     user_id INT PRIMARY KEY IDENTITY(1,1),
-    username VARCHAR(50) NOT NULL,
+    username VARCHAR(50) UNIQUE NOT NULL,
     password VARCHAR(100) NOT NULL,
     role_id INT NOT NULL,
     is_active VARCHAR(1) NOT NULL CHECK (is_active IN ('Y', 'N')), 

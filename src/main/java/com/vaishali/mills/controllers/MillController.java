@@ -1,10 +1,15 @@
 package com.vaishali.mills.controllers;
 
+import com.vaishali.mills.constants.QueryConstants;
 import com.vaishali.mills.requests.MillDetails;
 import com.vaishali.mills.requests.MillRotorMap;
 import com.vaishali.mills.responses.*;
 import com.vaishali.mills.responses.mappers.*;
+import com.vaishali.mills.service.LoginService;
+import com.vaishali.mills.utils.QueryUtils;
 import io.swagger.v3.oas.annotations.Operation;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -14,14 +19,20 @@ import org.springframework.web.bind.annotation.*;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.util.ArrayList;
 import java.util.List;
 
 @RestController
 @CrossOrigin("*")
 public class MillController {
 
+    private static final Logger logger = LoggerFactory.getLogger(MillController.class);
+
     @Autowired
     JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    QueryUtils queryUtils;
 
     @Operation(summary = "Start mill")
     @PostMapping("/millOpt")
@@ -172,10 +183,22 @@ public class MillController {
 
     @GetMapping("/viewdetails")
     public List<ViewDetails> getView() {
-        // TODO: sql migration
-        String sql = "select '' as remarks,mill, rotor, (select sum(tothrs) from (select case when C.status = 'Stop' then C.runninghours else datediff(hour,C.startPeriod,(getdate())) end as tothrs from rotor_transactions C where C.componentname='FDP' and C.rotorId=rotor) as fdp1) as fdp, (select sum(tothrs) from (select case when C.status = 'Stop' then C.runninghours else datediff(hour,C.startPeriod,(getdate())) end as tothrs from rotor_transactions C where C.componentname='VANEPAD' and C.rotorId=rotor) as vanepad1) as vanepad,(select distinct top 1 status from rotor_transactions where rotorId=rotor and MillId=mill order by status) as status,(select distinct top 1 overallDate from rotor_transactions_history where rotorId=rotor and componentname='FDP' order by overallDate desc) as fdpdate, (select distinct top 1   overallDate from rotor_transactions_history where rotorId=rotor and componentname='VANEPAD' order by overallDate desc) as vanepadDate from (select A.mill_rotor_id as mill, coalesce((select B.rotorid from mill_rotor_map B where B.status = 'Active' and B.millid= A.mill_rotor_id),'No Mill Attached') as rotor,'' as f,'' as f1 from mill_rotor1 A where A.typeof='Mill') as tbl";
+        String sql = "select '' as remarks,mill, rotor, (select sum(tothrs) from (select case when C.status = 'Stop' then C.runninghours else datediff(hour,C.startPeriod,(getdate())) end as tothrs from rotor_transactions C where C.componentname='FDP' and C.rotorId=rotor) as fdp1) as fdp, (select sum(tothrs) from (select case when C.status = 'Stop' then C.runninghours else datediff(hour,C.startPeriod,(getdate())) end as tothrs from rotor_transactions C where C.componentname='VANEPAD' and C.rotorId=rotor) as vanepad1) as vanepad,(select distinct top 1 status from rotor_transactions where rotorId=rotor and MillId=mill order by status) as status,(select distinct top 1 overallDate from rotor_transactions_history where rotorId=rotor and componentname='FDP' order by overallDate desc) as fdpdate, (select distinct top 1   overallDate from rotor_transactions_history where rotorId=rotor and componentname='VANEPAD' order by overallDate desc) as vanepadDate from (select A.mill_rotor_id as mill, coalesce((select B.rotorid from mill_rotor_map B where B.status = 'Active' and B.millid= A.mill_rotor_id),'No Rotor Attached') as rotor,'' as f,'' as f1 from mill_rotor1 A where A.typeof='Mill') as tbl";
         return jdbcTemplate.query(sql,new ViewMapper());
     }
 
+    @GetMapping("/mills")
+    public MillResponse getMills() {
+
+        logger.info("inside getMills()");
+        MillResponse millResponse = new MillResponse("","Success","");
+        List<String> mills  = queryUtils.getDataFromDB(QueryConstants.GET_MILLS, (rs, rowNum) -> rs.getString("mill_rotor_id"));
+        millResponse.setMills(mills);
+        if(mills == null) {
+            millResponse = new MillResponse("Error in fetching data.","","401.04");
+        }
+
+    return millResponse;
+    }
 
 }

@@ -48,13 +48,13 @@ public class LoginService {
     }
 
 
-    public UserPermissionsResponse handlePermissionsRequest(String roleId) {
+    public UserPermissionsResponse handlePermissionsRequest(String username) {
 
-        if(isInvalidPermissionsRequest(roleId)) {
-            return new UserPermissionsResponse("RoleId is required", "", "");
+        if(isInvalidPermissionsRequest(username)) {
+            return new UserPermissionsResponse("Username is required", "", "");
         }
 
-        List<Permission> permissionList = getPermissions(roleId);
+        List<Permission> permissionList = getPermissions(username);
 
         if(permissionList == null) {
             return new UserPermissionsResponse("Error in getting permissions for the user", "", "");
@@ -67,7 +67,7 @@ public class LoginService {
     public List<Permission> getPermissions(String roleId) {
 
         String query = String.format(
-                QueryConstants.GET_PERMISSIONS_BY_ROLL_ID,
+                QueryConstants.GET_PERMISSIONS_BY_USERNAME,
                 roleId
         );
 
