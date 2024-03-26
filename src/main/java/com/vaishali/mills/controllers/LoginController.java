@@ -32,5 +32,12 @@ public class LoginController {
         return loginService.handlePermissionsRequest(username);
     }
 
+    @PostMapping("/pwd-change")
+    public GenericResponse changePassword(@RequestBody LoginRequest loginRequest) {
+        logger.info(String.valueOf(loginRequest));
+
+        return loginService.handlePasswordChangeRequest(loginRequest);
+    }
+
 
 }

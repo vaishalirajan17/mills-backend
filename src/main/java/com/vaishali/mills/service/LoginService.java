@@ -25,7 +25,7 @@ public class LoginService {
 
     public GenericResponse handleLoginRequest(LoginRequest loginRequest) {
         if(isInvalidLoginRequest(loginRequest)) {
-            return new GenericResponse("User name cannot be empty", "", "");
+            return new GenericResponse("User name/ Password cannot be empty", "", "");
         }
 
         // check if username and password is valid
@@ -45,6 +45,27 @@ public class LoginService {
             logger.info("successfully logged in for user {}", loginRequest.getUsername());
             return new GenericResponse("","Logged in", "");
         }
+    }
+
+    public GenericResponse handlePasswordChangeRequest(LoginRequest loginRequest) {
+        if(isInvalidLoginRequest(loginRequest)) {
+            return new GenericResponse("User name/ Password cannot be empty", "", "");
+        }
+
+        String query = String.format(QueryConstants.UPDATE_PASSWORD_BY_USERNAME,
+                loginRequest.getPassword(),
+                loginRequest.getUsername());
+
+        int result = queryUtils.update(query);
+
+        if(result == -1) {
+            // exception occured
+            return new GenericResponse("Error in changing password. Please try again later", "", "401.08");
+        } else {
+            logger.info("successfully changed password for user {}", loginRequest.getUsername());
+            return new GenericResponse("","Changed password successfully", "");
+        }
+
     }
 
 
@@ -76,7 +97,7 @@ public class LoginService {
 
 
     public boolean isInvalidLoginRequest(LoginRequest loginRequest) {
-        return loginRequest.getUsername() == null;
+        return loginRequest.getUsername() == null || loginRequest.getPassword() == null;
     }
 
     public boolean isInvalidPermissionsRequest(String roleId) {

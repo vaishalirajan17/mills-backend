@@ -83,4 +83,15 @@ public class QueryUtils {
     }
 
 
+    public int update(String sql) {
+        try {
+            jdbcTemplate.update(sql);
+        } catch (Exception e) {
+            logger.error("An error occurred while executing SQL query: {}", sql, e);
+            return -1;
+        }
+        return 1;
+    }
+
+
 }
