@@ -38,9 +38,9 @@ public class LoginService {
 
         if(result.getState() == -1) {
             // exception occured
-            return new GenericResponse("Error in login. Please try again later", "", "");
+            return new GenericResponse("Error in login. Please try again later", "", "401.06");
         } else if (result.getState() == 0) {
-            return new GenericResponse("Wrong username/password. Please check again", "", "");
+            return new GenericResponse("Wrong username/password. Please check again", "", "401.07");
         } else {
             logger.info("successfully logged in for user {}", loginRequest.getUsername());
             return new GenericResponse("","Logged in", "");

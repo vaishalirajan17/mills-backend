@@ -19,6 +19,7 @@ public class ViewMapper implements RowMapper<ViewDetails> {
         viewDetails.setVanePadDate(rs.getTimestamp("vanepadDate"));
         viewDetails.setStatus(rs.getString("status"));
         viewDetails.setRemarks(rs.getString("remarks"));
+        viewDetails.setBoilerRemarks(rs.getString("boilerRemarks"));
 
         return viewDetails;
     }

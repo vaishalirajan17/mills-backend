@@ -11,4 +11,17 @@ public class QueryConstants {
 
     public static String GET_MILLS = "select mill_rotor_id from mill_rotor1 where typeof='Mill'";
 
+    public static String GET_USERNAME = "select username from users where username='%s'";
+
+    public static String INSERT_NEW_USER = "insert into users (username, password, role_id, is_active) values ";
+
+    public static  String INSERT_REMARKS = "insert into maintenance_remarks (remarks, remarkLoginId, millid, remarkType) values ";
+
+    public static String GET_EDIT_DETAILS="select distinct 'Start' as actionPerformed,startPeriod as editDate, millid, rotorid " +
+            "from rotor_transactions where datediff(day,CONVERT(date, startEntryDate), " +
+            "CONVERT(date, getdate())) <= 2 and datediff(day,CONVERT(date, startEntryDate), CONVERT(date, getdate()))  >= 0 " +
+            "union select distinct 'Stop' as action,endPeriod as editDate, millid, rotorid  from rotor_transactions " +
+            "where datediff(day,CONVERT(date, stopEntryDate), CONVERT(date, getdate())) <= 2 and " +
+            "datediff(day,CONVERT(date, stopEntryDate), CONVERT(date, getdate()))  >= 0";
+
 }

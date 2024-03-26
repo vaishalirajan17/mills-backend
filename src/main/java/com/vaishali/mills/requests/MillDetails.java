@@ -20,6 +20,8 @@ public class MillDetails {
     public String component;
 
     public Timestamp startTime;
+    public String remarks;
+    public String loginId;
 
     @Override
     public String toString() {

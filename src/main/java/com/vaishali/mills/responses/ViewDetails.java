@@ -19,5 +19,6 @@ public class ViewDetails {
     private Timestamp vanePadDate;
     private String status;
     private String remarks;
+    private String boilerRemarks;
 
 }

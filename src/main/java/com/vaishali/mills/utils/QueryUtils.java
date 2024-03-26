@@ -62,4 +62,25 @@ public class QueryUtils {
     }
 
 
+    public int insert(String sql, String... params) {
+        logger.info("Query is : {}", sql);
+        try {
+            sql += "(";
+            for(int i=0; i < params.length; i++) {
+                sql += "'" + params[i] + "'";
+                if(i < params.length -1) {
+                    sql += ",";
+                }
+            }
+            sql += ")";
+            logger.info("Updated Query is : {}", sql);
+            jdbcTemplate.update(sql);
+        } catch(Exception e) {
+            logger.error("An error occurred while executing SQL query: {}", sql, e);
+            return -1;
+        }
+        return 1;
+    }
+
+
 }

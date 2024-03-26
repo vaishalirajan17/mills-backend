@@ -1,11 +1,12 @@
 package com.vaishali.mills.controllers;
 
 import com.vaishali.mills.constants.QueryConstants;
+import com.vaishali.mills.requests.EditDetailsRequest;
 import com.vaishali.mills.requests.MillDetails;
 import com.vaishali.mills.requests.MillRotorMap;
+import com.vaishali.mills.requests.RemarkRequest;
 import com.vaishali.mills.responses.*;
 import com.vaishali.mills.responses.mappers.*;
-import com.vaishali.mills.service.LoginService;
 import com.vaishali.mills.utils.QueryUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import org.slf4j.Logger;
@@ -13,13 +14,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.RowMapper;
 import org.springframework.web.bind.annotation.*;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.sql.Timestamp;
-import java.util.ArrayList;
 import java.util.List;
 
 @RestController
@@ -112,7 +109,8 @@ public class MillController {
 
         String sqlStr = "exec insert_data @millNo='"+ millDetails.getMillId()+"',@rotorNo='" + millDetails.getRotorId()+ "',@action='" +
                 millDetails.getAction() + "',@comp='" + millDetails.getComponent() +"',@startTime='" + millDetails.getStartTime() +
-                "'";
+                "',@remarks='" + millDetails.getRemarks() + "',@loginId='" + millDetails.getLoginId() + "'";
+
         System.out.println(sqlStr);
         jdbcTemplate.execute(sqlStr);
 
@@ -133,10 +131,7 @@ public class MillController {
     @Operation(summary = "Get details for available Mill and Rotor")
     @GetMapping("/start")
     public List<StartDetails> getMillRotor() {
-    String sql = "(select A.mill_rotor_id,A.typeof from mill_rotor1 A where A.typeOf = 'Mill' and A.mill_rotor_id " +
-            "not in (select distinct MillId from rotor_transactions where status = 'Running' )) union " +
-            "(select A.mill_rotor_id,A.typeOf from mill_rotor1 A where A.typeOf = 'Rotor' and A.mill_rotor_id " +
-            "   not in (select distinct RotorId from rotor_transactions where status = 'Running' ))";
+        String sql = "select mill_rotor_id, typeof from (select A.mill_rotor_id,A.typeof from mill_rotor1 A where A.typeOf = 'Mill' and A.mill_rotor_id not in (select distinct MillId from rotor_transactions where status = 'Running' ) union select A.mill_rotor_id,A.typeOf from mill_rotor1 A where A.typeOf = 'Rotor' and A.mill_rotor_id not in (select distinct RotorId from rotor_transactions where status = 'Running' )) as tbl order by mill_rotor_id";
     return jdbcTemplate.query(sql,new StartDetailsMapper());
     }
 
@@ -183,9 +178,10 @@ public class MillController {
 
     @GetMapping("/viewdetails")
     public List<ViewDetails> getView() {
-        String sql = "select '' as remarks,mill, rotor, (select sum(tothrs) from (select case when C.status = 'Stop' then C.runninghours else datediff(hour,C.startPeriod,(getdate())) end as tothrs from rotor_transactions C where C.componentname='FDP' and C.rotorId=rotor) as fdp1) as fdp, (select sum(tothrs) from (select case when C.status = 'Stop' then C.runninghours else datediff(hour,C.startPeriod,(getdate())) end as tothrs from rotor_transactions C where C.componentname='VANEPAD' and C.rotorId=rotor) as vanepad1) as vanepad,(select distinct top 1 status from rotor_transactions where rotorId=rotor and MillId=mill order by status) as status,(select distinct top 1 overallDate from rotor_transactions_history where rotorId=rotor and componentname='FDP' order by overallDate desc) as fdpdate, (select distinct top 1   overallDate from rotor_transactions_history where rotorId=rotor and componentname='VANEPAD' order by overallDate desc) as vanepadDate from (select A.mill_rotor_id as mill, coalesce((select B.rotorid from mill_rotor_map B where B.status = 'Active' and B.millid= A.mill_rotor_id),'No Rotor Attached') as rotor,'' as f,'' as f1 from mill_rotor1 A where A.typeof='Mill') as tbl";
-        return jdbcTemplate.query(sql,new ViewMapper());
+        String sql = "select mill, rotor, (select sum(tothrs) from (select case when C.status = 'Stop' then C.runninghours else datediff(hour,C.startPeriod,(getdate())) end as tothrs from rotor_transactions C where C.componentname='FDP' and C.rotorId=rotor) as fdp1) as fdp, (select sum(tothrs) from (select case when C.status = 'Stop' then C.runninghours else datediff(hour,C.startPeriod,(getdate())) end as tothrs from rotor_transactions C where C.componentname='VANEPAD' and C.rotorId=rotor) as vanepad1) as vanepad,(select distinct top 1 status from rotor_transactions where rotorId=rotor and MillId=mill order by status) as status,(select distinct top 1 overallDate from rotor_transactions_history where rotorId=rotor and componentname='FDP' order by overallDate desc) as fdpdate, (select distinct top 1 overallDate from rotor_transactions_history where rotorId=rotor and componentname='VANEPAD' order by overallDate desc) as vanepadDate,(select top 1 remarks from maintenance_remarks where millid=mill and remarkType = 'Operational' order by remarkDate desc) as remarks, (select top 1 remarks from maintenance_remarks where millid=mill and remarkType = 'Maintenance' order by remarkDate desc) as boilerRemarks from (select A.mill_rotor_id as mill, coalesce((select B.rotorid from mill_rotor_map B where B.status = 'Active' and B.millid= A.mill_rotor_id),'No Rotor Attached') as rotor,'' as f,'' as f1 from mill_rotor1 A where A.typeof='Mill') as tbl";
+    return jdbcTemplate.query(sql,new ViewMapper());
     }
+
 
     @GetMapping("/mills")
     public MillResponse getMills() {
@@ -200,5 +196,59 @@ public class MillController {
 
     return millResponse;
     }
+
+    @PostMapping("/remarks")
+    public GenericResponse addRemarks(@RequestBody RemarkRequest remarkRequest) {
+        logger.info(remarkRequest.toString());
+
+        int result = queryUtils.insert(
+                QueryConstants.INSERT_REMARKS,
+                remarkRequest.getRemarks(),
+                remarkRequest.getRemarkLoginId(),
+                remarkRequest.getMillId(),
+                remarkRequest.getRemarkType());
+
+        if(result == -1) {
+            return new GenericResponse("Error in adding remarks. Please try again.","","401.07");
+        }
+
+    return new GenericResponse("","Success","");
+    }
+
+    @Operation(summary = "Get details for editting mill details")
+    @GetMapping("/editmill")
+    public List getEditDetails() {
+        return queryUtils.getDataFromDB(QueryConstants.GET_EDIT_DETAILS,new EditMapper());
+    }
+
+    @PostMapping("/edit")
+    public GenericResponse editDetail(@RequestBody EditDetailsRequest editDetailsRequest) {
+        logger.info(editDetailsRequest.toString());
+
+
+        String sqlStr = "exec edit_data @millid='"+ editDetailsRequest.getMillId()+
+                "',@rotorid='" + editDetailsRequest.getRotorId()+
+                "',@loginId='" + editDetailsRequest.getLoginId()+
+                "',@editDate='" + editDetailsRequest.getEditDate()+
+                "',@actionPerformed='" + editDetailsRequest.getActionPerformed() +  "'";
+
+        logger.info(sqlStr);
+        jdbcTemplate.execute(sqlStr);
+
+        return new GenericResponse("","Success","");
+    }
+
+    @Operation(summary = "Get complete details for components to edit")
+    @GetMapping("/editcomponent")
+    public List<ComponentDetails> editCompDetails(@RequestParam(name = "millid") String millid) {
+        if(millid == null || millid.equals("")) {
+            millid = "%%";
+        }
+        String sql = "select millid, rotorid, componentName, overallDate, runninghours as compthours from rotor_transactions_history where latestflag = 'Y' " +
+                "and millid like '" + millid + "'" ;
+
+        return jdbcTemplate.query(sql,new ComponentDetailsMapper());
+    }
+
 
 }

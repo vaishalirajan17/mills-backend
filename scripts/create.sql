@@ -25,3 +25,13 @@ CREATE TABLE users (
     is_active VARCHAR(1) NOT NULL CHECK (is_active IN ('Y', 'N')), 
     FOREIGN KEY (role_id) REFERENCES roles(role_id)
 );
+
+alter TABLE rotor_transactions add startRemarks varchar(50);
+alter TABLE rotor_transactions add stopRemarks varchar(50);
+alter TABLE rotor_transactions add startLogin varchar(50);
+alter TABLE rotor_transactions add stopLogin varchar(50);
+alter TABLE rotor_transactions_history add startRemarks varchar(50);
+alter TABLE rotor_transactions_history add stopRemarks varchar(50);
+alter TABLE rotor_transactions_history add startLogin varchar(50);
+alter TABLE rotor_transactions_history add stopLogin varchar(50);
+alter TABLE rotor_transactions_history add resetLogin varchar(50);
