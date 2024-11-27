@@ -1,10 +1,7 @@
 package com.vaishali.mills.controllers;
 
 import com.vaishali.mills.constants.QueryConstants;
-import com.vaishali.mills.requests.EditDetailsRequest;
-import com.vaishali.mills.requests.MillDetails;
-import com.vaishali.mills.requests.MillRotorMap;
-import com.vaishali.mills.requests.RemarkRequest;
+import com.vaishali.mills.requests.*;
 import com.vaishali.mills.responses.*;
 import com.vaishali.mills.responses.mappers.*;
 import com.vaishali.mills.utils.QueryUtils;
@@ -17,7 +14,11 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 
 import java.sql.Timestamp;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Date;
 import java.util.List;
+import java.util.Objects;
 
 @RestController
 @CrossOrigin("*")
@@ -107,6 +108,19 @@ public class MillController {
             }
         }
 
+        if(millDetails.getAction().equals("RSET")) {
+
+            DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+            LocalDateTime now = LocalDateTime.now();
+            System.out.println(dtf.format(now));
+
+            if(millDetails.getStartTime().compareTo(Timestamp.valueOf(now)) > 0) {
+                System.out.println("Date 1 occurs after Date 2");
+                return new GenericResponse("Overall Date cannot be greater than current date.","","401.01");
+
+            }
+        }
+
         String sqlStr = "exec insert_data @millNo='"+ millDetails.getMillId()+"',@rotorNo='" + millDetails.getRotorId()+ "',@action='" +
                 millDetails.getAction() + "',@comp='" + millDetails.getComponent() +"',@startTime='" + millDetails.getStartTime() +
                 "',@remarks='" + millDetails.getRemarks() + "',@loginId='" + millDetails.getLoginId() + "'";
@@ -137,33 +151,32 @@ public class MillController {
 
     @Operation(summary = "Get details for running Mills")
     @GetMapping("/running")
-    public List<RunningDetails> getMillRunning() {
-        String sql = "select distinct millid , rotorid from rotor_transactions where status = 'Running'";
+    public List<RunningDetails> getMillRunning(@RequestParam(name = "millid") String millid) {
+        String sql = "select distinct millid , rotorid from rotor_transactions where status = 'Running' and millid='"+millid+"'";
         return jdbcTemplate.query(sql,new RunningDetailsMapper());
     }
 
     @Operation(summary = "Get complete details for Mills")
     @GetMapping("/resetcomponent")
     public List<ComponentDetails> getCompDetails(@RequestParam(name = "millid") String millid) {
-        if(millid == null || millid.equals("")) {
-            millid = "%%";
-        }
         // TODO: sql migration
-        String sql = "select distinct A.millid,A.rotorid,A.componentname,(select sum(tothrs) from (select case when B.status = 'Stop' then " +
+        logger.info("rotorId = {}", millid);
+        String sql = "select distinct '' as transactionid,A.millid,A.rotorid,A.componentname,(select sum(tothrs) from (select case when B.status = 'Stop' then " +
                 "B.runninghours else datediff(hour,B.startPeriod,getdate()) end as tothrs from rotor_transactions B where B.rotorid=A.rotorid and " +
                 "B.componentname=A.componentname) as Hours) as compthours,(select distinct top 1 overallDate from rotor_transactions_history " +
                 "where rotorId=A.rotorid and componentname=A.componentName order by overallDate desc) as overallDate from rotor_transactions A  " +
                 "where A.status='Stop' and  (select count(*) from rotor_transactions C where C.rotorid=A.rotorid and C.componentname=A.componentname " +
-                "and C.status ='Running')=0 and  A.millid like '" + millid + "'" ;
+                "and C.status ='Running')=0 and  A.rotorid like '" + millid + "'" ;
+        logger.info("query = {}", sql);
 
         return jdbcTemplate.query(sql,new ComponentDetailsMapper());
     }
 
     @GetMapping("/mapData")
-    public List<RunningDetails> getMappingData() {
+    public List<RunningDetails> getMappingData(@RequestParam(name = "millid") String millid) {
         String sql = "select distinct millid , rotorid from mill_rotor_map where status = 'Active' and " +
                 "millid not in (select distinct millid from rotor_transactions where status='Running') " +
-                "and rotorid not in (select distinct rotorid from rotor_transactions where status='Running')";
+                "and rotorid not in (select distinct rotorid from rotor_transactions where status='Running') and millid='"+millid + "'";
         return jdbcTemplate.query(sql,new RunningDetailsMapper());
     }
 
@@ -197,6 +210,20 @@ public class MillController {
     return millResponse;
     }
 
+    @GetMapping("/rotors")
+    public MillResponse getRotors() {
+
+        logger.info("inside getRotors()");
+        MillResponse millResponse = new MillResponse("","Success","");
+        List<String> mills  = queryUtils.getDataFromDB(QueryConstants.GET_ROTOR, (rs, rowNum) -> rs.getString("mill_rotor_id"));
+        millResponse.setMills(mills);
+        if(mills == null) {
+            millResponse = new MillResponse("Error in fetching data.","","401.04");
+        }
+
+        return millResponse;
+    }
+
     @PostMapping("/remarks")
     public GenericResponse addRemarks(@RequestBody RemarkRequest remarkRequest) {
         logger.info(remarkRequest.toString());
@@ -206,7 +233,7 @@ public class MillController {
                 remarkRequest.getRemarks(),
                 remarkRequest.getRemarkLoginId(),
                 remarkRequest.getMillId(),
-                remarkRequest.getRemarkType());
+                remarkRequest.getRemarkType() );
 
         if(result == -1) {
             return new GenericResponse("Error in adding remarks. Please try again.","","401.07");
@@ -217,14 +244,18 @@ public class MillController {
 
     @Operation(summary = "Get details for editting mill details")
     @GetMapping("/editmill")
-    public List getEditDetails() {
-        return queryUtils.getDataFromDB(QueryConstants.GET_EDIT_DETAILS,new EditMapper());
+    public List getEditDetails(@RequestParam(name = "millid") String millid) {
+
+        String query = String.format(QueryConstants.GET_EDIT_DETAILS,
+                millid);
+
+        return queryUtils.getDataFromDB(query,new EditMapper());
     }
 
-    @PostMapping("/edit")
+    @Operation(summary = "Delete the latest mill transaction")
+    @PostMapping("/deletemill")
     public GenericResponse editDetail(@RequestBody EditDetailsRequest editDetailsRequest) {
         logger.info(editDetailsRequest.toString());
-
 
         String sqlStr = "exec edit_data @millid='"+ editDetailsRequest.getMillId()+
                 "',@rotorid='" + editDetailsRequest.getRotorId()+
@@ -241,13 +272,22 @@ public class MillController {
     @Operation(summary = "Get complete details for components to edit")
     @GetMapping("/editcomponent")
     public List<ComponentDetails> editCompDetails(@RequestParam(name = "millid") String millid) {
-        if(millid == null || millid.equals("")) {
-            millid = "%%";
-        }
-        String sql = "select millid, rotorid, componentName, overallDate, runninghours as compthours from rotor_transactions_history where latestflag = 'Y' " +
-                "and millid like '" + millid + "'" ;
+        System.out.println(millid);
+        String sql = "select  rotorid, componentName, overallDate, sum(runninghours) as compthours from rotor_transactions_history where latestflag = 'Y' " +
+                "and rotorid like '" + millid + "' group by rotorid, componentName, overallDate " ;
 
         return jdbcTemplate.query(sql,new ComponentDetailsMapper());
+    }
+
+    @PostMapping("/deletecomponent")
+    public void deleteComponent(@RequestBody ComponentResetRequest componentResetRequest) {
+        System.out.println(componentResetRequest.getRotorid());
+
+        String sqlStr = "exec comp_edit_data @rotor='"+ componentResetRequest.getRotorid()+"',@loginId='" + componentResetRequest.getLoginid() + "',@cmptName='"
+                +componentResetRequest.getComptName() +"'";
+
+        System.out.println(sqlStr);
+        jdbcTemplate.execute(sqlStr);
     }
 
 

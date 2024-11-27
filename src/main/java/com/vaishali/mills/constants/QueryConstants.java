@@ -12,17 +12,15 @@ public class QueryConstants {
 
     public static String GET_MILLS = "select mill_rotor_id from mill_rotor1 where typeof='Mill'";
 
+    public static String GET_ROTOR = "select mill_rotor_id from mill_rotor1 where typeof='Rotor'";
+
     public static String GET_USERNAME = "select username from users where username='%s'";
 
     public static String INSERT_NEW_USER = "insert into users (username, password, role_id, is_active) values ";
 
     public static  String INSERT_REMARKS = "insert into maintenance_remarks (remarks, remarkLoginId, millid, remarkType) values ";
 
-    public static String GET_EDIT_DETAILS="select distinct 'Start' as actionPerformed,startPeriod as editDate, millid, rotorid " +
-            "from rotor_transactions where datediff(day,CONVERT(date, startEntryDate), " +
-            "CONVERT(date, getdate())) <= 2 and datediff(day,CONVERT(date, startEntryDate), CONVERT(date, getdate()))  >= 0 " +
-            "union select distinct 'Stop' as action,endPeriod as editDate, millid, rotorid  from rotor_transactions " +
-            "where datediff(day,CONVERT(date, stopEntryDate), CONVERT(date, getdate())) <= 2 and " +
-            "datediff(day,CONVERT(date, stopEntryDate), CONVERT(date, getdate()))  >= 0";
+    public static String GET_EDIT_DETAILS="select top 1 case when status = 'Running' then startPeriod else endperiod end as editDate, millid, rotorid, case when status = 'Running' then " +
+            "'Start' else 'Stop' end as actionPerformed from rotor_transactions where millid = '%s' and  DATEDIFF(hour, getdate(), case when status = 'Running' then startEntryDate else stopEntryDate end  ) <= 24   order by case when status = 'Running' then startEntryDate else stopEntryDate end desc";
 
 }

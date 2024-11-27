@@ -13,5 +13,4 @@ public class EditDetailResponse {
     private String rotorId;
         private Timestamp editDate;
     private String actionPerformed;
-
 }
